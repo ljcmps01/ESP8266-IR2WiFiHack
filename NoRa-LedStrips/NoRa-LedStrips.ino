@@ -1,15 +1,42 @@
+/*Google Home sends a JSON string throught MQTT with the following format:
+ * {
+ *  "online":boolean,     --Checks if the device is connected (useless for our code
+ *  "on":boolean,         --The state the device should be (True if it's on, false if it's off)
+ *  "brigthness":int,     --A percentage of how bright the lights should be, from 0 (min) to 100(max)
+ *  "color":{             --A JSON object that contains the information of how the color should be following these parameters
+ *    "spectrumHsv"{
+ *      "hue":int,          --Represents a circle of colors (in degrees) from 0 to 359
+ *      "saturation":float, --Dunno, not used
+ *      "value":1           --Dunno, always = 1
+ *    }
+ * }
+ * 
+ */
+
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ArduinoJson.h>
+#include <IRremoteESP8266.h>
+#include <IRsend.h>
 
 // Update these with values suitable for your network.
 
 const char* ssid = "Campos";
 const char* password = "perico15";
 const char* mqtt_server = "192.168.1.46";
+
+const int nCodes=16;    //Number of codes extracted from the IR controller
+const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use (must be PWM). Recommended: 4 (D2).
+IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
+
+//These pair of arrays contains the trigger keywords and their respective code for said function
+String palabras[nCodes]={"on","off","-","+","white","red","green","blue","violet","pink","flash","smooth","fade","yellow","light blue","lime"};
+              //ON            Off           -           +             Blanco      Rojo        Verde         Azul        Violeta     Rosa          Flash       Smooth        Fade
+int codes[nCodes]={0x00F7C03FUL,0x00F740BFUL,0x00F7807FUL,0x00F700FFUL,0x00F7E01FUL,0x00F720DFUL,0x00F7A05FUL,0x00F7609FUL,0x00F7708FUL,0x00F76897UL,0x00F7D02FUL,0x00F7E817UL,0x00F7C837UL,0x00F728D7UL,0x00F78877UL,0x00F7A857UL};
+
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -44,20 +71,40 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
-  for (int i = 0; i < length; i++) {
+
+  StaticJsonDocument<256> doc;  
+  
+  Serial.print("payload: ");
+  for(int i =0; i<length; i++){
     Serial.print((char)payload[i]);
   }
   Serial.println();
+  
+  deserializeJson(doc, payload, length);
 
-  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
-    digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is active low on the ESP-01)
-  } else {
-    digitalWrite(BUILTIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-  }
+  Serial.print("status: ");
+  bool On=doc["on"];
+  Serial.println(On);
+  
+  Serial.print("Brillo: ");
+  int brightness=doc["brightness"];
+  Serial.println(brightness);
+  
+  Serial.print("color: ");
+  float color=doc["color"]["spectrumHsv"]["hue"];
+  Serial.println(color);
+  
+  Serial.print("saturation: ");
+  float saturation=doc["color"]["spectrumHsv"]["saturation"];
+  Serial.println(saturation);
+  
+  Serial.print("ilumination: ");
+  float ilumination=doc["color"]["spectrumHsv"]["value"];
+  Serial.println(ilumination);
 
+  Serial.print("producto: ");
+  int producto=color*saturation*ilumination;
+  Serial.println(producto);
 }
 
 void reconnect() {
@@ -90,6 +137,7 @@ void setup() {
   setup_wifi();
   client.setServer(mqtt_server, 8008);
   client.setCallback(callback);
+  client.setBufferSize(512); 
   ArduinoOTA.onStart([]() {
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH) {
@@ -126,35 +174,13 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  Serial.println("Json doc");
-  StaticJsonDocument<200> doc;
-  char json[] =
-      "{\"sensor\":\"gps\",\"time\":1351824120,\"data\":[48.756080,2.302038]}";
-
-  // Deserialize the JSON document
-  DeserializationError error = deserializeJson(doc, json);
-
-  // Test if parsing succeeds.
-  if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.c_str());
-    return;
-  }
-
-  // Fetch values.
-  //
-  // Most of the time, you can rely on the implicit casts.
-  // In other case, you can do doc["time"].as<long>();
-  const char* sensor = doc["sensor"];
-  long time = doc["time"];
-  double latitude = doc["data"][0];
-  double longitude = doc["data"][1];
-
-  // Print values.
-  Serial.println(sensor);
-  Serial.println(time);
-  Serial.println(latitude, 6);
-  Serial.println(longitude, 6);
+  //Once everything of the network is setup we send a few commands to make the lights blink
+  //And let us know that everything fine
+  irsend.sendNEC(codes[0]); //Turn on the leds
+  delay(100);
+  irsend.sendNEC(codes[4]); //Make them white
+  delay(100);
+  irsend.sendNEC(codes[1]); //Turn off the leds
 }
 
 void loop() {
