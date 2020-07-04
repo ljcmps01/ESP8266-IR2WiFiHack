@@ -2,7 +2,7 @@
  * {
  *  "online":boolean,     --Checks if the device is connected (useless for our code
  *  "on":boolean,         --The state the device should be (True if it's on, false if it's off)
- *  "brigthness":int,     --A percentage of how bright the lights should be, from 0 (min) to 100(max)
+ *  "brightness":int,     --A percentage of how bright the lights should be, from 0 (min) to 100(max)
  *  "color":{             --A JSON object that contains the information of how the color should be following these parameters
  *    "spectrumHsv"{
  *      "hue":int,          --Represents a circle of colors (in degrees) from 0 to 359
@@ -10,9 +10,8 @@
  *      "value":1           --Dunno, always = 1
  *    }
  * }
- * 
  */
-
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <ESP8266mDNS.h>
@@ -21,6 +20,7 @@
 #include <ArduinoJson.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
+#include <EEPROM.h>
 
 // Update these with values suitable for your network.
 
@@ -35,7 +35,24 @@ IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
 //These pair of arrays contains the trigger keywords and their respective code for said function
 String palabras[nCodes]={"on","off","-","+","white","red","green","blue","violet","pink","flash","smooth","fade","yellow","light blue","lime"};
               //ON            Off           -           +             Blanco      Rojo        Verde         Azul        Violeta     Rosa          Flash       Smooth        Fade
-int codes[nCodes]={0x00F7C03FUL,0x00F740BFUL,0x00F7807FUL,0x00F700FFUL,0x00F7E01FUL,0x00F720DFUL,0x00F7A05FUL,0x00F7609FUL,0x00F7708FUL,0x00F76897UL,0x00F7D02FUL,0x00F7E817UL,0x00F7C837UL,0x00F728D7UL,0x00F78877UL,0x00F7A857UL};
+int codes[nCodes]={
+  0x00F7C03FUL, //ON 0
+  0x00F740BFUL, //Off 1
+  0x00F7807FUL, //- 2
+  0x00F700FFUL, //+ 3
+  0x00F7E01FUL, //White 4
+  0x00F720DFUL, //Red 5
+  0x00F7A05FUL, //Blue 6
+  0x00F7609FUL, //Violet 7
+  0x00F7708FUL, //Pink 8
+  0x00F76897UL, //Flash 9
+  0x00F7D02FUL, //Smooth 10
+  0x00F7E817UL, //Fade 11
+  0x00F7C837UL, //Yellow 12
+  0x00F728D7UL, //Light Blue 13 
+  0x00F78877UL, //Lime 14
+  0x00F7A857UL  //
+  };
 
 
 WiFiClient espClient;
@@ -44,7 +61,45 @@ long lastMsg = 0;
 char msg[50];
 int value = 0;
 
+//Evaluation of the incoming data and comparation with its previous state and values
+bool oldstate=0;
+int  oldbrightness=0;
+int oldcolor=0;
+void evaluateColor();
+void evaluateInstruction(bool state, int brightness, int color){
+  if (oldstate!=state){
+    Serial.println("State change received");
+    state?irsend.sendNEC(codes[0]):irsend.sendNEC(codes[1]);
+    oldstate=state;
+    Serial.print("New State: "+ String(state));
+  }
 
+  if (oldbrightness!=brightness)
+  {
+    Serial.println("Brightness change received");
+    if (oldbrightness>brightness)
+    { 
+      Serial.println("Dimming the lights");
+      for(oldbrightness;oldbrightness--;oldbrightness==brightness)
+      {
+        Serial.print(".");
+        irsend.sendNEC(codes[2]);
+      }
+    }
+    else
+    {
+      Serial.println("Brightening the lights");
+      for(oldbrightness;oldbrightness--;oldbrightness==brightness)
+      {
+        Serial.print(".");
+        irsend.sendNEC(codes[3]);
+      }
+    }
+    EEPROM.write(0,brightness);
+    EEPROM.commit();
+  }
+  
+}
 
 void setup_wifi() {
 
@@ -135,10 +190,17 @@ void reconnect() {
 
 void setup() {
   Serial.begin(115200);
+  EEPROM.begin(4);
+  oldbrightness=EEPROM.read(0);
   setup_wifi();
   client.setServer(mqtt_server, 8008);
   client.setCallback(callback);
   client.setBufferSize(512); 
+  if (!MDNS.begin("NodeMCU-01")) {             // Start the mDNS responder for esp8266.local
+    Serial.println("Error setting up MDNS responder!");
+  }
+  Serial.println("mDNS responder started");
+
   ArduinoOTA.onStart([]() {
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH) {

@@ -3,13 +3,15 @@
         {
             "name": "Win32",
             "includePath": [
+                "C:\\Users\\ljcmp\\OneDrive\\Documentos\\Arduino\\libraries\\arduino_318594\\src",
+                "C:\\Users\\ljcmp\\OneDrive\\Documentos\\Arduino\\libraries\\IRremoteESP8266\\src",
+                "C:\\Users\\ljcmp\\OneDrive\\Documentos\\Arduino\\libraries\\IRremote",
                 "C:\\Users\\ljcmp\\AppData\\Local\\Arduino15\\packages\\esp8266\\tools\\**",
                 "C:\\Users\\ljcmp\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.1\\**",
                 "C:\\Users\\ljcmp\\OneDrive\\Documentos\\Arduino\\libraries",
                 "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries/ArduinoJson",
                 "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries",
-                "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries/ArduinoJson/src",
-                "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries/PubSubClient/src"
+                "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries/ArduinoJson/src"
             ],
             "forcedInclude": [],
             "intelliSenseMode": "msvc-x64",
