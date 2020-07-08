@@ -26,7 +26,7 @@
 
 const char* ssid = "Campos";
 const char* password = "perico15";
-const char* mqtt_server = "192.168.1.46";
+const char* mqtt_server = "raspberrypi.local";
 
 const int nCodes=16;    //Number of codes extracted from the IR controller
 const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use (must be PWM). Recommended: 4 (D2).
@@ -71,7 +71,7 @@ void evaluateInstruction(bool state, int brightness, int color){
     Serial.println("State change received");
     state?irsend.sendNEC(codes[0]):irsend.sendNEC(codes[1]);
     oldstate=state;
-    Serial.print("New State: "+ String(state));
+    Serial.println("New State: "+ String(state));
   }
 
   if (oldbrightness!=brightness)
@@ -79,24 +79,30 @@ void evaluateInstruction(bool state, int brightness, int color){
     Serial.println("Brightness change received");
     if (oldbrightness>brightness)
     { 
-      Serial.println("Dimming the lights");
-      for(oldbrightness;oldbrightness--;oldbrightness==brightness)
+      Serial.print("Dimming the lights to: ");
+      Serial.println(brightness);
+      for(oldbrightness;oldbrightness!=brightness;oldbrightness--)
       {
-        Serial.print(".");
+        Serial.print(". -- ");
+        Serial.println(oldbrightness);
         irsend.sendNEC(codes[2]);
       }
     }
     else
     {
-      Serial.println("Brightening the lights");
-      for(oldbrightness;oldbrightness--;oldbrightness==brightness)
+      Serial.print("Brightening the lights to: ");
+      Serial.println(brightness);
+      for(oldbrightness;oldbrightness!=brightness;oldbrightness++)
       {
-        Serial.print(".");
+        Serial.print(". -- ");
+        Serial.println(oldbrightness);
         irsend.sendNEC(codes[3]);
       }
     }
     EEPROM.write(0,brightness);
     EEPROM.commit();
+    Serial.print("New brightness");
+    Serial.println(brightness);
   }
   
 }
@@ -162,6 +168,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("producto: ");
   int producto=color*saturation*ilumination;
   Serial.println(producto);
+
+  evaluateInstruction(On,brightness,producto);
 }
 
 void reconnect() {
@@ -177,7 +185,7 @@ void reconnect() {
       // Once connected, publish an announcement...
       //client.publish("", "hello world");
       // ... and resubscribe
-      client.subscribe("test/test");
+      client.subscribe("/home/bedroom/ligths/ledstrips");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -192,11 +200,12 @@ void setup() {
   Serial.begin(115200);
   EEPROM.begin(4);
   oldbrightness=EEPROM.read(0);
+ 
   setup_wifi();
-  client.setServer(mqtt_server, 8008);
+  client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   client.setBufferSize(512); 
-  if (!MDNS.begin("NodeMCU-01")) {             // Start the mDNS responder for esp8266.local
+  if (!MDNS.begin("NodeMCU01")) {             // Start the mDNS responder for esp8266.local
     Serial.println("Error setting up MDNS responder!");
   }
   Serial.println("mDNS responder started");
@@ -244,6 +253,9 @@ void setup() {
   irsend.sendNEC(codes[4]); //Make them white
   delay(100);
   irsend.sendNEC(codes[1]); //Turn off the leds
+
+  Serial.print("Current brightness: ");
+  Serial.println(oldbrightness);
 }
 
 void loop() {
