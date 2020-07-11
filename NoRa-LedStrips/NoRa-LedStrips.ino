@@ -21,21 +21,41 @@
 #include <ArduinoJson.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
+#include <EEPROM.h>
 
 // Update these with values suitable for your network.
 
 const char* ssid = "Campos";
 const char* password = "perico15";
-const char* mqtt_server = "192.168.1.46";
+const char* mqtt_server = "raspberrypi.local";
 
-const int nCodes=16;    //Number of codes extracted from the IR controller
+const int nCodes=20;    //Number of codes extracted from the IR controller
 const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use (must be PWM). Recommended: 4 (D2).
 IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
 
-//These pair of arrays contains the trigger keywords and their respective code for said function
-String palabras[nCodes]={"on","off","-","+","white","red","green","blue","violet","pink","flash","smooth","fade","yellow","light blue","lime"};
-              //ON            Off           -           +             Blanco      Rojo        Verde         Azul        Violeta     Rosa          Flash       Smooth        Fade
-int codes[nCodes]={0x00F7C03FUL,0x00F740BFUL,0x00F7807FUL,0x00F700FFUL,0x00F7E01FUL,0x00F720DFUL,0x00F7A05FUL,0x00F7609FUL,0x00F7708FUL,0x00F76897UL,0x00F7D02FUL,0x00F7E817UL,0x00F7C837UL,0x00F728D7UL,0x00F78877UL,0x00F7A857UL};
+//This array contains the codes the control remote would send
+int codes[nCodes]={
+  0x00F7C03FUL, //ON 0
+  0x00F740BFUL, //Off 1
+  0x00F7807FUL, //- 2
+  0x00F700FFUL, //+ 3
+  0x00F720DFUL, //4- red
+  0x00F710EFUL, //5- redish orange
+  0x00F7E01FUL, //6- white
+  0x00F728D7UL, //7- yellowish orange
+  0x00F730CFUL, //8- orange
+  0x00F78877UL, //9- light blue
+  0x00F7906FUL, //10- light green
+  0x00F728D7UL, //11- yellow 
+  0x00F7B04FUL, //12- sky blue 
+  0x00F76897UL, //13- pink 
+  0x00F7A05FUL, //14- green 
+  0x00F7708FUL, //15- violet 
+  0x00F750AFUL, //16- dark violet
+  0x00F7609FUL, //17- blue 
+  0x00F748B7UL, //18- light violet
+  0x00F7A857UL  //19- navy blue
+  };
 
 
 WiFiClient espClient;
@@ -44,7 +64,138 @@ long lastMsg = 0;
 char msg[50];
 int value = 0;
 
+//Evaluation of the incoming data and comparation with its previous state and values
+bool oldstate=0;
+int  oldbrightness=0;
+int oldcolor=-1;
+void evaluateColor(int color){
+  switch (color)
+  {
+  case 0:   //red 
+    irsend.sendNEC(codes[4]);
+    Serial.println("Color red");
+    break;
+  case 2:   //redish orange 
+    irsend.sendNEC(codes[5]);
+    Serial.println("Color redish orange");
+    break;
+  
+  case 11:  //white
+    irsend.sendNEC(codes[6]);
+    Serial.println("Color white");
+    break;
+  
+  case 25:  //yellowish orange
+    irsend.sendNEC(codes[7]);
+    Serial.println("Color yellowish orange");
+    break;
+  
+  case 29:  //orange
+    irsend.sendNEC(codes[8]);
+    Serial.println("Color orange");
+    break;
+  
+  case 43:  //light blue
+    irsend.sendNEC(codes[9]);
+    Serial.println("Color light blue");
+    break;
+  
+  case 44:  //light green
+    irsend.sendNEC(codes[10]);
+    Serial.println("Color light green");
+    break;
+  
+  case 60:  //yellow
+    irsend.sendNEC(codes[11]);
+    Serial.println("Color yellow");
+    break;
+  
+  case 77:  //sky blue
+    irsend.sendNEC(codes[12]);
+    Serial.println("Color sky blue");
+    break;
+  
+  case 86:  //pink
+    irsend.sendNEC(codes[13]);
+    Serial.println("Color pink");
+    break;
+  
+  case 120: //green
+    irsend.sendNEC(codes[14]);
+    Serial.println("Color green");
+    break;
+  
+  case 194: //violet
+    irsend.sendNEC(codes[15]);
+    Serial.println("Color violet");
+    break;
+  
+  case 233: //dark violet
+    irsend.sendNEC(codes[16]);
+    Serial.println("Color dark violet");
+    break;
+  
+  
+  case 240: //blue
+    irsend.sendNEC(codes[17]);
+    Serial.println("Color blue");
+    break;
+  
+  case 269: //light violet
+    irsend.sendNEC(codes[18]);
+    Serial.println("Color light violet");
+    break;
+  
+  default:
+    break;
+  }
+}
+void evaluateInstruction(bool state, int brightness, int color){
+  if(color!=oldcolor)
+  {
+    irsend.sendNEC(codes[0]);
+    evaluateColor(color);
+    oldcolor=color;
+  }
+  if (oldstate!=state){
+    Serial.println("State change received");
+    state?irsend.sendNEC(codes[0]):irsend.sendNEC(codes[1]);
+    oldstate=state;
+    Serial.println("New State: "+ String(state));
+  }
 
+  if (oldbrightness!=brightness)
+  {
+    Serial.println("Brightness change received");
+    if (oldbrightness>brightness)
+    { 
+      Serial.print("Dimming the lights to: ");
+      Serial.println(brightness);
+      for(oldbrightness;oldbrightness!=brightness;oldbrightness--)
+      {
+        Serial.print(". -- ");
+        Serial.println(oldbrightness);
+        irsend.sendNEC(codes[2]);
+      }
+    }
+    else
+    {
+      Serial.print("Brightening the lights to: ");
+      Serial.println(brightness);
+      for(oldbrightness;oldbrightness!=brightness;oldbrightness++)
+      {
+        Serial.print(". -- ");
+        Serial.println(oldbrightness);
+        irsend.sendNEC(codes[3]);
+      }
+    }
+    EEPROM.write(0,brightness);
+    EEPROM.commit();
+    Serial.print("New brightness");
+    Serial.println(brightness);
+  }
+  
+}
 
 void setup_wifi() {
 
@@ -107,6 +258,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("producto: ");
   int producto=color*saturation*ilumination;
   Serial.println(producto);
+
+  evaluateInstruction(On,brightness,producto);
 }
 
 void reconnect() {
@@ -122,7 +275,7 @@ void reconnect() {
       // Once connected, publish an announcement...
       //client.publish("", "hello world");
       // ... and resubscribe
-      client.subscribe("test/test");
+      client.subscribe("/home/bedroom/ligths/ledstrips");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -134,11 +287,20 @@ void reconnect() {
 }
 
 void setup() {
+  irsend.begin();
   Serial.begin(115200);
+  EEPROM.begin(4);
+  oldbrightness=EEPROM.read(0);
+ 
   setup_wifi();
-  client.setServer(mqtt_server, 8008);
+  client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   client.setBufferSize(512); 
+  if (!MDNS.begin("NodeMCU-LEDs")) {             // Start the mDNS responder for esp8266.local
+    Serial.println("Error setting up MDNS responder!");
+  }
+  Serial.println("mDNS responder started");
+
   ArduinoOTA.onStart([]() {
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH) {
@@ -182,6 +344,9 @@ void setup() {
   irsend.sendNEC(codes[4]); //Make them white
   delay(100);
   irsend.sendNEC(codes[1]); //Turn off the leds
+
+  Serial.print("Current brightness: ");
+  Serial.println(oldbrightness);
 }
 
 void loop() {
