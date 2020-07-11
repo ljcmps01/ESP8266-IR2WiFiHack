@@ -2,7 +2,7 @@
 This repo coinstains all the data needed to connect your cheap IR LED strips to WiFi using an ESP8266 module and MQTT connection
 ## Work to be done
 ### NoRa-LedStrips
-* Add/complete color evaluation function
+* Add further and more reliable color evaluation function
 ## Working
 ### LEDStripsMQTT
 The program on this file allows us to easily talk to the ESP trought MQTT to send codes to the receiver board
