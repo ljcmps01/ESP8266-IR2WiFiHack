@@ -6,8 +6,8 @@
  *  "color":{             --A JSON object that contains the information of how the color should be following these parameters
  *    "spectrumHsv"{
  *      "hue":int,          --Represents a circle of colors (in degrees) from 0 to 359
- *      "saturation":float, --Dunno, not used
- *      "value":1           --Dunno, always = 1
+ *      "saturation":float, --Represents how "washed" the color is, from 0 to 1 (0=white)
+ *      "value":1           --Represents how iluminated the color is, from 0 to 1 (0=black)
  *    }
  * }
  * 
@@ -24,10 +24,10 @@
 #include <EEPROM.h>
 
 // Update these with values suitable for your network.
-
-const char* ssid = "Campos";
-const char* password = "perico15";
-const char* mqtt_server = "raspberrypi.local";
+const char* ssid = "WiFi ID";
+const char* password = "WiFi Pass";
+const char* mqtt_server = "raspberrypi.local";  //change to the MQTT broker you're using on node red
+const char* mqttTopic = "/home/bedroom/ligths/ledstrips";
 
 const int nCodes=20;    //Number of codes extracted from the IR controller
 const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use (must be PWM). Recommended: 4 (D2).
@@ -275,7 +275,7 @@ void reconnect() {
       // Once connected, publish an announcement...
       //client.publish("", "hello world");
       // ... and resubscribe
-      client.subscribe("/home/bedroom/ligths/ledstrips");
+      client.subscribe(mqttTopic);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
