@@ -11,7 +11,8 @@
                 "C:\\Users\\ljcmp\\OneDrive\\Documentos\\Arduino\\libraries",
                 "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries/ArduinoJson",
                 "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries",
-                "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries/ArduinoJson/src"
+                "C:/Users/ljcmp/OneDrive/Documentos/Arduino/libraries/ArduinoJson/src",
+                "C:\\Users\\ljcmp\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.2\\**"
             ],
             "forcedInclude": [],
             "intelliSenseMode": "msvc-x64",
