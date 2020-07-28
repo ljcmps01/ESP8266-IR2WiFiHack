@@ -3,7 +3,6 @@ This repo coinstains all the data needed to connect your cheap IR LED strips to 
 
 ## Work to be done
 * Add WiFiManager library for first time setup of the network
-* Add wiring diagrams
 ### NoRa-LedStrips
 * Add further and more reliable color evaluation function
 
